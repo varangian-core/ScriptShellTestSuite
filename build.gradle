@@ -125,6 +125,25 @@ task renameAndMoveFiles {
 }
 
 
+task installPester(type: Exec) {
+    def pesterInstalled = false
+
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', "if (Get-Module Pester -ListAvailable) { exit 0 } else { Install-Module Pester -Force -Scope CurrentUser; exit 0 }"
+    } else {
+        commandLine 'pwsh', '-NoProfile', '-Command', "if (Get-Module Pester -ListAvailable) { exit 0 } else { Install-Module Pester -Force -Scope CurrentUser; exit 0 }"
+    }
+
+    doFirst {
+        println "Checking if Pester is installed..."
+    }
+
+    doLast {
+        println "Pester is installed."
+    }
+}
+
+
 
 
 //change for tasks.register later on
@@ -167,7 +186,9 @@ jacocoTestReport {
 }
 
 
-//Form aggregate report
+//TODO: Manual external import as an alternative to MVN
+//TODO: Mocking/stubbing data processing
+//TODO: Aggregate report form routine
 
 
 
