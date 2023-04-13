@@ -1,20 +1,176 @@
 plugins {
     id 'groovy'
+    id 'java'
+    id 'jacoco'
 }
 
-group 'org.example'
+group 'org.lm.test'
 version '1.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
 }
 
+
 dependencies {
-    implementation 'org.apache.groovy:groovy:4.0.2'
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+    implementation 'org.codehaus.groovy:groovy-all:3.0.9'
+    testImplementation 'org.spockframework:spock-core:2.0-groovy-3.0'
+    testImplementation 'org.spockframework:spock-junit4:2.0-groovy-3.0'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.codehaus.groovy:groovy:3.0.9'
+    testImplementation 'org.mockito:mockito-core:4.3.1'
 }
 
+
+import java.nio.file.Files
+import java.nio.file.Paths
+
+def cleanAndWrapGroovyContent(String content, String className) {
+    def lines = content.readLines()
+
+    def importLines = lines.findAll { line -> line.startsWith('import') }
+    def imports = importLines.join('\n')
+
+    def cleanedContent = content.replaceAll(/(\/\*[\s\S]*?\*\/)|(\/\/.*?$)/, '')
+    cleanedContent = cleanedContent.replaceAll(/(^import\s+.*?$)/, '')
+
+    def nonImportLines = cleanedContent.readLines().findAll { line -> !line.startsWith('import') }
+    cleanedContent = nonImportLines.join('\n')
+
+    return "${imports}\n\nclass ${className} {\n${cleanedContent}\n}"
+}
+
+
+//LOADED must be present in the DOCKER IMAGE
+//This task will create other directories and move files around
+task renameAndMoveFiles {
+    doLast {
+        def loadedFolderPath = "${projectDir}/LOADED"
+        def loadedFolder = new File(loadedFolderPath)
+
+        if (!loadedFolder.exists() || !loadedFolder.isDirectory()) {
+            println "LOADED folder not found in the project directory."
+            return
+        }
+
+        def mainGroovyPath = "${projectDir}/src/main/groovy"
+        def testGroovyPath = "${projectDir}/src/test/groovy"
+        def mainPowershellPath = "${projectDir}/src/main/powershell"
+        def testPowershellPath = "${projectDir}/src/test/powershell"
+        def datapoints = "${projectDir}/Datapoints"
+
+        def mainGroovyDir = new File(mainGroovyPath)
+        def testGroovyDir = new File(testGroovyPath)
+        def mainPowershellDir = new File(mainPowershellPath)
+        def testPowershellDir = new File(testPowershellPath)
+        def datapointsDir = new File(datapoints)
+
+        if (!mainGroovyDir.exists()) {
+            mainGroovyDir.mkdirs()
+        }
+        if (!testGroovyDir.exists()) {
+            testGroovyDir.mkdirs()
+        }
+        if (!mainPowershellDir.exists()) {
+            mainPowershellDir.mkdirs()
+        }
+        if (!testPowershellDir.exists()) {
+            testPowershellDir.mkdirs()
+        }
+        if (!datapointsDir.exists()) {
+            datapointsDir.mkdirs()
+        }
+
+        loadedFolder.listFiles().each { folder ->
+            if (folder.isDirectory()) {
+                def folderName = folder.name
+
+                folder.listFiles().each { file ->
+                    if (file.isFile()) {
+                        def fileName = file.name
+                        def newName = "${folderName.capitalize()}${fileName.capitalize()}"
+
+                        if (fileName.endsWith(".groovy")) {
+                            def fileContent = file.text
+                            def className = newName.replace(".groovy", "")
+                            def wrappedContent = cleanAndWrapGroovyContent(fileContent, className)
+                            file.write(wrappedContent, "UTF-8")
+                        }
+
+                        def newFilePath
+
+                        if (fileName.endsWith(".ps1")) {
+                            if (fileName.startsWith("test")) {
+                                newFilePath = "$testPowershellPath/$newName"
+                            } else {
+                                newFilePath = "$mainPowershellPath/$newName"
+                            }
+                        } else if (fileName.endsWith(".json")) {
+                            newFilePath = "$datapoints/$newName"
+                        } else {
+                            if (fileName.startsWith("test")) {
+                                newFilePath = "$testGroovyPath/$newName"
+                            } else {
+                                newFilePath = "$mainGroovyPath/$newName"
+                            }
+                        }
+
+                        file.renameTo(new File(newFilePath))
+                        println "File '$fileName' has been renamed to '$newName' and moved to '${newFilePath}'."
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+
+//change for tasks.register later on
+task runPester(type: Exec) {
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', '& { Import-Module Pester; . C:\\Users\\v\\IdeaProjects\\TestHarness\\src\\main\\powershell\\myCommand.ps1; Invoke-Pester -Path C:\\Users\\v\\IdeaProjects\\TestHarness\\src\\test\\powershell\\myCommand.Tests.ps1 }'
+    } else {
+        // Assuming PowerShell is installed on a non-Windows system
+        commandLine 'pwsh', '-NoProfile', '-Command', '& { Import-Module Pester; Invoke-Pester -Path ./path/to/pester/tests.ps1 }'
+    }
+
+    doFirst {
+        println "Running Pester tests..."
+    }
+
+    doLast {
+        println "Pester tests completed."
+    }
+}
+
+test.dependsOn runPester
+
+//This needs sanitization and possibly adding some lib dependencies
 test {
     useJUnitPlatform()
+    testLogging {
+        events 'started', 'passed', 'skipped', 'failed'
+        exceptionFormat 'full'
+        showExceptions true
+        showCauses true
+        showStackTraces true
+    }
 }
+
+jacocoTestReport {
+    reports {
+        xml.enabled(true)
+        html.enabled(true)
+    }
+}
+
+
+//Form aggregate report
+
+
+
+
+
+
