@@ -14,11 +14,14 @@ repositories {
 
 dependencies {
     implementation 'org.codehaus.groovy:groovy-all:3.0.9'
+    testImplementation platform('org.spockframework:spock-bom:2.0-groovy-3.0')
     testImplementation 'org.spockframework:spock-core:2.0-groovy-3.0'
     testImplementation 'org.spockframework:spock-junit4:2.0-groovy-3.0'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.codehaus.groovy:groovy:3.0.9'
     testImplementation 'org.mockito:mockito-core:4.3.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
 }
 
 
@@ -146,10 +149,44 @@ task installPester(type: Exec) {
 
 
 
+//TODO: Need to revisit this
+//task runPesterTests(type: Exec) {
+//    dependsOn 'assemble'
+//
+//    // Define the command to execute PowerShell
+//    if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+//        commandLine 'powershell', '-ExecutionPolicy', 'Unrestricted'
+//    } else {
+//        commandLine 'pwsh'
+//    }
+//
+//    // Define the PowerShell script to run Pester tests
+//    args '-Command', '''
+//        $testDir = ".\\src\\test\\powershell\\"
+//        $mainDir = ".\\src\\main\\powershell\\"
+//
+//        Get-ChildItem -Path $testDir -Filter "*.Tests.ps1" | ForEach-Object {
+//            $testFile = $_
+//            $sourceFile = Join-Path -Path $mainDir -ChildPath ($testFile.Name -replace ".Tests.ps1", ".ps1")
+//
+//            if (Test-Path $sourceFile) {
+//                Write-Host "Running Pester tests for: $($testFile.Name)"
+//                Write-Host "Source file: $($sourceFile)"
+//                Import-Module Pester
+//                . $sourceFile
+//                Invoke-Pester -Path $testFile.FullName
+//            }
+//            else {
+//                Write-Host "Source file not found: $($sourceFile)"
+//            }
+//        }
+//    '''.stripIndent()
+//}
+
 //change for tasks.register later on
 task runPester(type: Exec) {
     if (System.getProperty('os.name').toLowerCase().contains('windows')) {
-        commandLine 'powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', '& { Import-Module Pester; . C:\\Users\\v\\IdeaProjects\\TestHarness\\src\\main\\powershell\\myCommand.ps1; Invoke-Pester -Path C:\\Users\\v\\IdeaProjects\\TestHarness\\src\\test\\powershell\\myCommand.Tests.ps1 }'
+        commandLine 'powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', '& { Import-Module Pester; . C:\\Users\\v\\IdeaProjects\\TestHarness\\src\\main\\powershell\\HelloMain.ps1; Invoke-Pester -Path C:\\Users\\v\\IdeaProjects\\TestHarness\\src\\test\\powershell\\HelloMain.Tests.ps1 }'
     } else {
         // Assuming PowerShell is installed on a non-Windows system
         commandLine 'pwsh', '-NoProfile', '-Command', '& { Import-Module Pester; Invoke-Pester -Path ./path/to/pester/tests.ps1 }'
@@ -164,7 +201,7 @@ task runPester(type: Exec) {
     }
 }
 
-test.dependsOn runPester
+//test.dependsOn runPester
 
 //This needs sanitization and possibly adding some lib dependencies
 test {
